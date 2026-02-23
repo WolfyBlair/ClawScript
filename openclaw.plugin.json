@@ -1,0 +1,37 @@
+{
+  "id": "clawscript",
+  "channels": [],
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "maxExecutionTime": {
+        "type": "number",
+        "description": "Maximum execution time in milliseconds"
+      },
+      "maxMemory": {
+        "type": "number",
+        "description": "Maximum memory in MB"
+      },
+      "allowFilesystem": {
+        "type": "boolean",
+        "description": "Allow filesystem operations"
+      },
+      "allowNetwork": {
+        "type": "boolean",
+        "description": "Allow network operations (requires addons.http)"
+      },
+      "allowShell": {
+        "type": "boolean",
+        "description": "Allow shell command execution (Shell.exec, Shell.spawn, etc.)"
+      },
+      "addons": {
+        "type": "array",
+        "description": "Experimental addons to enable: http, crypto, regex, uuid, base64, time, encoding, validation, collection",
+        "items": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

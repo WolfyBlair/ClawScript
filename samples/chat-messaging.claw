@@ -1,0 +1,420 @@
+// Chat/Messaging System
+// Demonstrates: Real-time messaging simulation, unread counts, notifications
+
+// Message types
+var MSG_TEXT = "text";
+var MSG_IMAGE = "image";
+var MSG_FILE = "file";
+var MSG_SYSTEM = "system";
+
+// Chat room types
+var ROOM_DIRECT = "direct";
+var ROOM_GROUP = "group";
+var ROOM_CHANNEL = "channel";
+
+// Create user
+function createUser(id, username, displayName, avatar) {
+  return {
+    id: id,
+    username: username,
+    displayName: displayName,
+    avatar: avatar || "",
+    status: "offline",
+    lastSeen: null,
+    bio: "",
+    unreadCount: 0,
+    notifications: []
+  };
+}
+
+// Create message
+function createMessage(senderId, content, type, metadata) {
+  return {
+    id: "msg_" + generateId(),
+    senderId: senderId,
+    content: content,
+    type: type || MSG_TEXT,
+    metadata: metadata || {},
+    timestamp: Date.now(),
+    edited: false,
+    reactions: [],
+    replies: [],
+    threadId: null
+  };
+}
+
+// Create chat room
+function createRoom(id, name, type, ownerId) {
+  return {
+    id: id,
+    name: name,
+    type: type,
+    ownerId: ownerId,
+    members: [],
+    messages: [],
+    createdAt: Date.now(),
+    lastActivity: Date.now(),
+    pinnedMessage: null,
+    description: "",
+    isPrivate: false,
+    unreadCount: {}
+  };
+}
+
+// Add member to room
+function addMember(room, userId) {
+  if (!Array.includes(room.members, userId)) {
+    room.members = Array.push(room.members, userId);
+    room.unreadCount[userId] = 0;
+  }
+}
+
+// Remove member from room
+function removeMember(room, userId) {
+  var idx = Array.indexOf(room.members, userId);
+  if (idx > -1) {
+    room.members = Array.slice(room.members, 0, idx) + Array.slice(room.members, idx + 1);
+    room.unreadCount[userId] = undefined;
+  }
+}
+
+// Send message to room
+function sendMessage(room, senderId, content, type, metadata) {
+  var message = createMessage(senderId, content, type, metadata);
+  room.messages = Array.push(room.messages, message);
+  room.lastActivity = Date.now();
+  
+  // Update unread count for other members
+  for (var i = 0; i < len(room.members); i = i + 1) {
+    var memberId = room.members[i];
+    if (memberId != senderId) {
+      if (!has(room.unreadCount, memberId)) {
+        room.unreadCount[memberId] = 0;
+      }
+      room.unreadCount[memberId] = room.unreadCount[memberId] + 1;
+    }
+  }
+  
+  return message;
+}
+
+// Mark room as read
+function markAsRead(room, userId) {
+  room.unreadCount[userId] = 0;
+}
+
+// Get unread count for user
+function getUnreadCount(room, userId) {
+  if (!has(room.unreadCount, userId)) return 0;
+  return room.unreadCount[userId] || 0;
+}
+
+// Reply to message (thread)
+function replyToMessage(room, messageId, userId, content) {
+  var parentMsg = null;
+  for (var i = 0; i < len(room.messages); i = i + 1) {
+    if (room.messages[i].id == messageId) {
+      parentMsg = room.messages[i];
+      break;
+    }
+  }
+  
+  if (!parentMsg) return null;
+  
+  var reply = createMessage(userId, content, MSG_TEXT, {});
+  reply.threadId = messageId;
+  parentMsg.replies = Array.push(parentMsg.replies, reply);
+  
+  return reply;
+}
+
+// Add reaction to message
+function addReaction(room, messageId, userId, emoji) {
+  for (var i = 0; i < len(room.messages); i = i + 1) {
+    if (room.messages[i].id == messageId) {
+      var reactions = room.messages[i].reactions;
+      if (!has(reactions, emoji)) {
+        reactions[emoji] = [];
+      }
+      if (!Array.includes(reactions[emoji], userId)) {
+        reactions[emoji] = Array.push(reactions[emoji], userId);
+      }
+      return true;
+    }
+  }
+  return false;
+}
+
+// Remove reaction
+function removeReaction(room, messageId, userId, emoji) {
+  for (var i = 0; i < len(room.messages); i = i + 1) {
+    if (room.messages[i].id == messageId) {
+      var reactions = room.messages[i].reactions;
+      if (has(reactions, emoji)) {
+        var idx = Array.indexOf(reactions[emoji], userId);
+        if (idx > -1) {
+          reactions[emoji] = Array.slice(reactions[emoji], 0, idx) + Array.slice(reactions[emoji], idx + 1);
+        }
+      }
+      return true;
+    }
+  }
+  return false;
+}
+
+// Pin message
+function pinMessage(room, messageId) {
+  for (var i = 0; i < len(room.messages); i = i + 1) {
+    if (room.messages[i].id == messageId) {
+      room.pinnedMessage = room.messages[i];
+      return true;
+    }
+  }
+  return false;
+}
+
+// Unpin message
+function unpinMessage(room) {
+  room.pinnedMessage = null;
+}
+
+// Search messages
+function searchMessages(room, query) {
+  var results = [];
+  var q = String.lower(query);
+  for (var i = 0; i < len(room.messages); i = i + 1) {
+    var msg = room.messages[i];
+    if (String.includes(String.lower(msg.content), q)) {
+      results = Array.push(results, msg);
+    }
+  }
+  return results;
+}
+
+// Get message thread
+function getThread(room, messageId) {
+  for (var i = 0; i < len(room.messages); i = i + 1) {
+    if (room.messages[i].id == messageId) {
+      return {
+        parent: room.messages[i],
+        replies: room.messages[i].replies
+      };
+    }
+  }
+  return null;
+}
+
+// Generate ID
+function generateId() {
+  return Date.now() + "_" + Math.floor(Math.random() * 10000);
+}
+
+// Format timestamp
+function formatTime(timestamp) {
+  var diff = Date.now() - timestamp;
+  var seconds = Math.floor(diff / 1000);
+  var minutes = Math.floor(seconds / 60);
+  var hours = Math.floor(minutes / 60);
+  var days = Math.floor(hours / 24);
+  
+  if (seconds < 60) return "Just now";
+  if (minutes < 60) return minutes + "m ago";
+  if (hours < 24) return hours + "h ago";
+  if (days < 7) return days + "d ago";
+  return Time.format(timestamp, "MMM DD");
+}
+
+// Format message
+function formatMessage(message, sender, users) {
+  var output = "";
+  output = output + "[" + formatTime(message.timestamp) + "] ";
+  output = output + sender.displayName + ": ";
+  output = output + message.content;
+  
+  if (len(message.reactions) > 0) {
+    output = output + " ";
+    for (var emoji in message.reactions) {
+      output = output + emoji + " " + len(message.reactions[emoji]) + " ";
+    }
+  }
+  
+  if (len(message.replies) > 0) {
+    output = output + " [replies: " + len(message.replies) + "]";
+  }
+  
+  return output;
+}
+
+// Create notification
+function createNotification(userId, type, content, link) {
+  return {
+    id: "notif_" + generateId(),
+    userId: userId,
+    type: type,
+    content: content,
+    link: link || "",
+    read: false,
+    timestamp: Date.now()
+  };
+}
+
+// Add notification to user
+function addNotification(user, notification) {
+  user.notifications = Array.push(user.notifications, notification);
+}
+
+// Mark all notifications as read
+function markNotificationsRead(user) {
+  for (var i = 0; i < len(user.notifications); i = i + 1) {
+    user.notifications[i].read = true;
+  }
+}
+
+// Get unread notifications
+function getUnreadNotifications(user) {
+  return filter(user.notifications, function(n) { return !n.read; });
+}
+
+// ========== DEMO ==========
+
+print("=== Chat/Messaging System Demo ===\n");
+
+// Create users
+var users = {
+  "alice": createUser(1, "alice", "Alice Smith", "👩"),
+  "bob": createUser(2, "bob", "Bob Johnson", "👨"),
+  "charlie": createUser(3, "charlie", "Charlie Brown", "🧑"),
+  "diana": createUser(4, "diana", "Diana Prince", "👩‍🦰")
+};
+
+print("--- Users Created ---");
+for (var key in users) {
+  print("- @" + users[key].username + " (" + users[key].displayName + ")");
+}
+
+// Create chat rooms
+var general = createRoom("general", "General Chat", ROOM_GROUP, "alice");
+var random = createRoom("random", "Random", ROOM_CHANNEL, "alice");
+var direct = createRoom("alice-bob", "Alice & Bob", ROOM_DIRECT, "alice");
+
+// Add members
+addMember(general, "alice");
+addMember(general, "bob");
+addMember(general, "charlie");
+addMember(general, "diana");
+
+addMember(random, "alice");
+addMember(random, "bob");
+addMember(random, "charlie");
+
+addMember(direct, "alice");
+addMember(direct, "bob");
+
+var rooms = {
+  "general": general,
+  "random": random,
+  "direct": direct
+};
+
+// Send messages to general channel
+print("\n--- General Channel Messages ---");
+
+sendMessage(general, "alice", "Welcome everyone to the new chat! 🎉", MSG_TEXT);
+sendMessage(general, "bob", "Thanks Alice! Excited to be here.", MSG_TEXT);
+sendMessage(general, "charlie", "Hello everyone!", MSG_TEXT);
+sendMessage(general, "diana", "Hey team! What's the plan for today?", MSG_TEXT);
+sendMessage(general, "bob", "I was thinking we could work on the new feature.", MSG_TEXT);
+sendMessage(general, "alice", "Good idea Bob. Let's discuss in the planning meeting.", MSG_TEXT);
+
+// React to messages
+var lastMsg = general.messages[len(general.messages) - 1];
+addReaction(general, lastMsg.id, "bob", "👍");
+addReaction(general, lastMsg.id, "charlie", "👍");
+addReaction(general, lastMsg.id, "diana", "✅");
+
+// Send messages to direct chat
+print("\n--- Direct Messages (Alice <-> Bob) ---");
+
+sendMessage(direct, "alice", "Hey Bob, can you review my PR?", MSG_TEXT);
+sendMessage(direct, "bob", "Sure! I'll take a look now.", MSG_TEXT);
+sendMessage(direct, "alice", "Thanks! Let me know if you have any questions.", MSG_TEXT);
+
+// Thread reply
+var prMsg = direct.messages[0];
+replyToMessage(direct, prMsg.id, "bob", "Looks good! Just a few minor suggestions.");
+replyToMessage(direct, prMsg.id, "alice", "Thanks, I'll update those.");
+
+// Send messages to random channel
+print("\n--- Random Channel ---");
+
+sendMessage(random, "charlie", "Anyone up for lunch?", MSG_TEXT);
+sendMessage(random, "diana", "I'm in! What are we thinking?", MSG_TEXT);
+sendMessage(random, "bob", "How about pizza?", MSG_TEXT);
+sendMessage(random, "charlie", "Sounds good to me!", MSG_TEXT);
+
+// Display messages
+print("\n--- General Channel Chat ---");
+for (var i = 0; i < len(general.messages); i = i + 1) {
+  var msg = general.messages[i];
+  var sender = users[msg.senderId == 1 ? "alice" : msg.senderId == 2 ? "bob" : msg.senderId == 3 ? "charlie" : "diana"];
+  print(formatMessage(msg, sender, users));
+}
+
+print("\n--- Direct Messages ---");
+for (var i = 0; i < len(direct.messages); i = i + 1) {
+  var msg = direct.messages[i];
+  var sender = users[msg.senderId == 1 ? "alice" : "bob"];
+  print(formatMessage(msg, sender, users));
+}
+
+// Unread counts
+print("\n--- Unread Counts ---");
+print("General - Alice: " + getUnreadCount(general, "alice"));
+print("General - Bob: " + getUnreadCount(general, "bob"));
+print("Direct - Alice: " + getUnreadCount(direct, "alice"));
+print("Direct - Bob: " + getUnreadCount(direct, "bob"));
+
+// Mark as read
+markAsRead(general, "alice");
+markAsRead(general, "bob");
+print("\nAfter marking as read:");
+print("General - Alice: " + getUnreadCount(general, "alice"));
+print("General - Bob: " + getUnreadCount(general, "bob"));
+
+// Pin message
+print("\n--- Pin Message ---");
+pinMessage(general, general.messages[0].id);
+print("Pinned: " + general.pinnedMessage.content);
+
+// Search
+print("\n--- Search: 'feature' ---");
+var searchResults = searchMessages(general, "feature");
+for (var i = 0; i < len(searchResults); i = i + 1) {
+  print("  Found: " + searchResults[i].content);
+}
+
+// Notifications
+print("\n--- Notifications ---");
+addNotification(users["alice"], createNotification(1, "mention", "Bob mentioned you in #general", "/channel/general"));
+addNotification(users["alice"], createNotification(1, "message", "New message from Charlie", "/direct/charlie"));
+addNotification(users["alice"], createNotification(1, "reaction", "Bob reacted to your message", "/channel/general"));
+
+print("Alice's notifications:");
+var aliceNotifs = users["alice"].notifications;
+for (var i = 0; i < len(aliceNotifs); i = i + 1) {
+  var n = aliceNotifs[i];
+  var status = n.read ? "✓" : "○";
+  print("  " + status + " [" + n.type + "] " + n.content);
+}
+
+// Room info
+print("\n--- Room Information ---");
+for (var key in rooms) {
+  var r = rooms[key];
+  print(r.name + ":");
+  print("  Type: " + r.type);
+  print("  Members: " + len(r.members));
+  print("  Messages: " + len(r.messages));
+}
+
+print("\n=== Demo Complete ===");

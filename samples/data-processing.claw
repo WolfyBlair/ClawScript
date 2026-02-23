@@ -1,0 +1,452 @@
+// Data Processing & Analytics Engine
+// Demonstrates: Arrays, Maps, Filtering, Sorting, Aggregation, Statistical Functions
+
+// ========== DATA TRANSFORMATION ==========
+
+// Map array (transform each element)
+function map(arr, fn) {
+  return Array.map(arr, fn);
+}
+
+// Filter array
+function filter(arr, fn) {
+  return Array.filter(arr, fn);
+}
+
+// Reduce array
+function reduce(arr, fn, initial) {
+  return Array.reduce(arr, fn, initial);
+}
+
+// Group by key
+function groupBy(arr, keyFn) {
+  var groups = {};
+  for (var i = 0; i < len(arr); i = i + 1) {
+    var key = keyFn(arr[i]);
+    if (!has(groups, key)) {
+      groups[key] = [];
+    }
+    groups[key] = Array.push(groups[key], arr[i]);
+  }
+  return groups;
+}
+
+// Sort by key
+function sortBy(arr, keyFn, descending) {
+  var sorted = Array.slice(arr);
+  sorted = Array.sort(sorted, function(a, b) {
+    var keyA = keyFn(a);
+    var keyB = keyFn(b);
+    if (descending) {
+      if (keyA < keyB) return 1;
+      if (keyA > keyB) return -1;
+    } else {
+      if (keyA < keyB) return -1;
+      if (keyA > keyB) return 1;
+    }
+    return 0;
+  });
+  return sorted;
+}
+
+// Unique values
+function unique(arr) {
+  var result = [];
+  for (var i = 0; i < len(arr); i = i + 1) {
+    if (!Array.includes(result, arr[i])) {
+      result = Array.push(result, arr[i]);
+    }
+  }
+  return result;
+}
+
+// Unique by key
+function uniqueBy(arr, keyFn) {
+  var seen = {};
+  var result = [];
+  for (var i = 0; i < len(arr); i = i + 1) {
+    var key = String(keyFn(arr[i]));
+    if (!has(seen, key)) {
+      seen[key] = true;
+      result = Array.push(result, arr[i]);
+    }
+  }
+  return result;
+}
+
+// Flatten nested array
+function flatten(arr, depth) {
+  return Array.flat(arr, depth || 1);
+}
+
+// Chunk array into smaller arrays
+function chunk(arr, size) {
+  var chunks = [];
+  for (var i = 0; i < len(arr); i = i + size) {
+    chunks = Array.push(chunks, Array.slice(arr, i, i + size));
+  }
+  return chunks;
+}
+
+// Pick random items
+function sample(arr, count) {
+  var result = [];
+  var copy = Array.slice(arr);
+  for (var i = 0; i < count && len(copy) > 0; i = i + 1) {
+    var idx = Math.floor(Math.random() * len(copy));
+    result = Array.push(result, copy[idx]);
+    copy = Array.slice(copy, 0, idx) + Array.slice(copy, idx + 1);
+  }
+  return result;
+}
+
+// ========== STATISTICS ==========
+
+// Sum of numbers
+function sum(arr) {
+  return reduce(arr, function(acc, n) { return acc + n; }, 0);
+}
+
+// Average
+function avg(arr) {
+  if (len(arr) == 0) return 0;
+  return sum(arr) / len(arr);
+}
+
+// Median
+function median(arr) {
+  if (len(arr) == 0) return 0;
+  var sorted = Array.slice(arr);
+  sorted = Array.sort(sorted);
+  var mid = Math.floor(len(sorted) / 2);
+  if (len(sorted) % 2 == 0) {
+    return (sorted[mid - 1] + sorted[mid]) / 2;
+  }
+  return sorted[mid];
+}
+
+// Mode (most frequent)
+function mode(arr) {
+  if (len(arr) == 0) return null;
+  var freq = {};
+  var maxFreq = 0;
+  var modeVal = null;
+  for (var i = 0; i < len(arr); i = i + 1) {
+    var val = String(arr[i]);
+    if (!has(freq, val)) {
+      freq[val] = 0;
+    }
+    freq[val] = freq[val] + 1;
+    if (freq[val] > maxFreq) {
+      maxFreq = freq[val];
+      modeVal = arr[i];
+    }
+  }
+  return modeVal;
+}
+
+// Variance
+function variance(arr) {
+  if (len(arr) == 0) return 0;
+  var mean = avg(arr);
+  return reduce(arr, function(acc, n) { 
+    return acc + Math.pow(n - mean, 2); 
+  }, 0) / len(arr);
+}
+
+// Standard deviation
+function stdDev(arr) {
+  return Math.sqrt(variance(arr));
+}
+
+// Min value
+function min(arr) {
+  if (len(arr) == 0) return null;
+  return Array.reduce(arr, function(a, b) { return a < b ? a : b; });
+}
+
+// Max value
+function max(arr) {
+  if (len(arr) == 0) return null;
+  return Array.reduce(arr, function(a, b) { return a > b ? a : b; });
+}
+
+// Range
+function range(arr) {
+  return max(arr) - min(arr);
+}
+
+// Percentile
+function percentile(arr, p) {
+  var sorted = Array.slice(arr);
+  sorted = Array.sort(sorted);
+  var idx = (p / 100) * (len(sorted) - 1);
+  var lower = Math.floor(idx);
+  var upper = Math.ceil(idx);
+  if (lower == upper) return sorted[lower];
+  return sorted[lower] * (upper - idx) + sorted[upper] * (idx - lower);
+}
+
+// Quartiles
+function quartiles(arr) {
+  return {
+    q1: percentile(arr, 25),
+    q2: percentile(arr, 50),
+    q3: percentile(arr, 75)
+  };
+}
+
+// ========== ANALYTICS ==========
+
+// Calculate growth rate
+function growthRate(current, previous) {
+  if (previous == 0) return 0;
+  return ((current - previous) / previous) * 100;
+}
+
+// Moving average
+function movingAverage(arr, window) {
+  if (len(arr) < window) return [];
+  var result = [];
+  for (var i = window - 1; i < len(arr); i = i + 1) {
+    var sum = 0;
+    for (var j = 0; j < window; j = j + 1) {
+      sum = sum + arr[i - j];
+    }
+    result = Array.push(result, sum / window);
+  }
+  return result;
+}
+
+// Cumulative sum
+function cumulativeSum(arr) {
+  var result = [];
+  var sum = 0;
+  for (var i = 0; i < len(arr); i = i + 1) {
+    sum = sum + arr[i];
+    result = Array.push(result, sum);
+  }
+  return result;
+}
+
+// Year-over-year comparison
+function yoyCompare(currentYear, previousYear) {
+  return {
+    current: currentYear,
+    previous: previousYear,
+    absoluteChange: currentYear - previousYear,
+    percentChange: growthRate(currentYear, previousYear)
+  };
+}
+
+// ========== CORRELATION ==========
+
+// Pearson correlation coefficient
+function correlation(x, y) {
+  if (len(x) != len(y) || len(x) == 0) return 0;
+  
+  var n = len(x);
+  var sumX = sum(x);
+  var sumY = sum(y);
+  var sumXY = 0;
+  var sumX2 = 0;
+  var sumY2 = 0;
+  
+  for (var i = 0; i < n; i = i + 1) {
+    sumXY = sumXY + x[i] * y[i];
+    sumX2 = sumX2 + x[i] * x[i];
+    sumY2 = sumY2 + y[i] * y[i];
+  }
+  
+  var numerator = n * sumXY - sumX * sumY;
+  var denominator = Math.sqrt((n * sumX2 - sumX * sumX) * (n * sumY2 - sumY * sumY));
+  
+  if (denominator == 0) return 0;
+  return numerator / denominator;
+}
+
+// ========== REPORTING ==========
+
+// Generate summary report
+function generateSummary(data, label) {
+  var values = [];
+  for (var i = 0; i < len(data); i = i + 1) {
+    if (typeof data[i] == "number") {
+      values = Array.push(values, data[i]);
+    }
+  }
+  
+  return {
+    label: label,
+    count: len(values),
+    sum: sum(values),
+    avg: avg(values),
+    min: min(values),
+    max: max(values),
+    median: median(values),
+    stdDev: stdDev(values),
+    range: range(values),
+    quartiles: quartiles(values)
+  };
+}
+
+// Format summary
+function formatSummary(summary) {
+  var output = "";
+  output = output + "======================================\n";
+  output = output + "      " + summary.label + " Summary\n";
+  output = output + "======================================\n";
+  output = output + "Count:      " + summary.count + "\n";
+  output = output + "Sum:        " + toFixed(summary.sum, 2) + "\n";
+  output = output + "Average:    " + toFixed(summary.avg, 2) + "\n";
+  output = output + "Median:     " + toFixed(summary.median, 2) + "\n";
+  output = output + "Min:        " + toFixed(summary.min, 2) + "\n";
+  output = output + "Max:        " + toFixed(summary.max, 2) + "\n";
+  output = output + "Std Dev:    " + toFixed(summary.stdDev, 2) + "\n";
+  output = output + "Range:      " + toFixed(summary.range, 2) + "\n";
+  output = output + "Q1:         " + toFixed(summary.quartiles.q1, 2) + "\n";
+  output = output + "Q2:         " + toFixed(summary.quartiles.q2, 2) + "\n";
+  output = output + "Q3:         " + toFixed(summary.quartiles.q3, 2) + "\n";
+  output = output + "======================================";
+  return output;
+}
+
+function toFixed(num, decimals) {
+  var multiplier = 1;
+  for (var i = 0; i < decimals; i = i + 1) {
+    multiplier = multiplier * 10;
+  }
+  return Math.floor(num * multiplier) / multiplier;
+}
+
+// ========== DEMO ==========
+
+print("=== Data Processing & Analytics Demo ===\n");
+
+// Sample sales data
+var salesData = [
+  { date: "2024-01", region: "North", product: "Electronics", sales: 45000, units: 150 },
+  { date: "2024-01", region: "South", product: "Electronics", sales: 38000, units: 120 },
+  { date: "2024-01", region: "East", product: "Clothing", sales: 28000, units: 200 },
+  { date: "2024-01", region: "West", product: "Clothing", sales: 32000, units: 180 },
+  { date: "2024-02", region: "North", product: "Electronics", sales: 52000, units: 170 },
+  { date: "2024-02", region: "South", product: "Electronics", sales: 41000, units: 135 },
+  { date: "2024-02", region: "East", product: "Clothing", sales: 31000, units: 220 },
+  { date: "2024-02", region: "West", product: "Clothing", sales: 35000, units: 195 },
+  { date: "2024-03", region: "North", product: "Electronics", sales: 48000, units: 160 },
+  { date: "2024-03", region: "South", product: "Electronics", sales: 44000, units: 145 },
+  { date: "2024-03", region: "East", product: "Clothing", sales: 29000, units: 210 },
+  { date: "2024-03", region: "West", product: "Clothing", sales: 37000, units: 205 },
+  { date: "2024-04", region: "North", product: "Electronics", sales: 55000, units: 185 },
+  { date: "2024-04", region: "South", product: "Electronics", sales: 42000, units: 140 },
+  { date: "2024-04", region: "East", product: "Clothing", sales: 33000, units: 235 },
+  { date: "2024-04", region: "West", product: "Clothing", sales: 39000, units: 220 }
+];
+
+print("--- Original Data ---");
+print("Records: " + len(salesData));
+
+// Filter: Electronics sales only
+var electronicsSales = filter(salesData, function(r) {
+  return r.product == "Electronics";
+});
+print("\n--- Filter: Electronics Only ---");
+print("Records: " + len(electronicsSales));
+
+// Group by region
+print("\n--- Group by Region ---");
+var byRegion = groupBy(salesData, function(r) { return r.region; });
+for (var key in byRegion) {
+  var regionTotal = sum(map(byRegion[key], function(r) { return r.sales; }));
+  print(key + ": $" + regionTotal);
+}
+
+// Group by product
+print("\n--- Group by Product ---");
+var byProduct = groupBy(salesData, function(r) { return r.product; });
+for (var key in byProduct) {
+  var productTotal = sum(map(byProduct[key], function(r) { return r.sales; }));
+  print(key + ": $" + productTotal);
+}
+
+// Sort by sales (descending)
+print("\n--- Top 5 Sales Records ---");
+var sortedBySales = sortBy(salesData, function(r) { return r.sales; }, true);
+for (var i = 0; i < 5; i = i + 1) {
+  var r = sortedBySales[i];
+  print((i + 1) + ". " + r.region + " - " + r.product + ": $" + r.sales);
+}
+
+// Aggregate: Total sales by month
+print("\n--- Monthly Totals ---");
+var byMonth = groupBy(salesData, function(r) { return r.date; });
+for (var key in byMonth) {
+  var monthTotal = sum(map(byMonth[key], function(r) { return r.sales; }));
+  print(key + ": $" + monthTotal);
+}
+
+// Extract sales numbers
+var allSales = map(salesData, function(r) { return r.sales; });
+var allUnits = map(salesData, function(r) { return r.units; });
+
+print("\n--- Sales Statistics ---");
+print(formatSummary(generateSummary(allSales, "Sales")));
+
+print("\n--- Units Statistics ---");
+print(formatSummary(generateSummary(allUnits, "Units")));
+
+// Growth analysis
+print("\n--- Growth Analysis ---");
+var janSales = sum(filter(map(salesData, function(r) { 
+  if (r.date == "2024-01") return r.sales; 
+  return 0; 
+}), function(n) { return n > 0; }));
+var aprSales = sum(filter(map(salesData, function(r) { 
+  if (r.date == "2024-04") return r.sales; 
+  return 0; 
+}), function(n) { return n > 0; }));
+
+var growth = yoyCompare(aprSales, janSales);
+print("January 2024: $" + janSales);
+print("April 2024: $" + aprSales);
+print("Change: $" + growth.absoluteChange + " (" + toFixed(growth.percentChange, 1) + "%)");
+
+// Moving average
+print("\n--- 3-Period Moving Average (Sales) ---");
+var monthlyTotals = [];
+for (var key in byMonth) {
+  monthlyTotals = Array.push(monthlyTotals, sum(map(byMonth[key], function(r) { return r.sales; })));
+}
+var ma = movingAverage(monthlyTotals, 3);
+for (var i = 0; i < len(ma); i = i + 1) {
+  print("Month " + (i + 3) + ": $" + toFixed(ma[i], 0));
+}
+
+// Unique regions
+print("\n--- Unique Regions ---");
+var regions = unique(map(salesData, function(r) { return r.region; }));
+print(Array.join(regions, ", "));
+
+// Correlation between sales and units
+print("\n--- Correlation Analysis ---");
+var corr = correlation(allSales, allUnits);
+print("Sales vs Units correlation: " + toFixed(corr, 3));
+
+// Chunk data
+print("\n--- Chunked Data (4 per chunk) ---");
+var chunks = chunk(salesData, 4);
+print("Total chunks: " + len(chunks));
+for (var i = 0; i < len(chunks); i = i + 1) {
+  var chunkSum = sum(map(chunks[i], function(r) { return r.sales; }));
+  print("Chunk " + (i + 1) + ": " + len(chunks[i]) + " records, $" + chunkSum);
+}
+
+// Cumulative sum
+print("\n--- Cumulative Sales by Month ---");
+var cumSum = cumulativeSum(monthlyTotals);
+var months = ["Jan", "Feb", "Mar", "Apr"];
+for (var i = 0; i < len(cumSum); i = i + 1) {
+  print(months[i] + ": $" + toFixed(cumSum[i], 0) + " (cumulative)");
+}
+
+print("\n=== Demo Complete ===");

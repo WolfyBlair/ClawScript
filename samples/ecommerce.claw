@@ -1,0 +1,423 @@
+// E-Commerce Shopping Cart System
+// Demonstrates: Objects, Arrays, Calculations, Discounts, Inventory
+
+// Product categories
+var CAT_ELECTRONICS = "electronics";
+var CAT_CLOTHING = "clothing";
+var CAT_BOOKS = "books";
+var CAT_HOME = "home";
+var CAT_SPORTS = "sports";
+
+// Product class
+function createProduct(id, name, price, category, stock, description) {
+  return {
+    id: id,
+    name: name,
+    price: price,
+    category: category,
+    stock: stock,
+    description: description || "",
+    rating: 0,
+    reviews: 0,
+    image: "",
+    tags: [],
+    discount: 0,
+    freeShipping: false
+  };
+}
+
+// Cart item
+function createCartItem(product, quantity) {
+  return {
+    product: product,
+    quantity: quantity,
+    addedAt: Date.now()
+  };
+}
+
+// Shopping cart
+function createCart() {
+  return {
+    items: [],
+    coupon: null,
+    savedAt: Date.now()
+  };
+}
+
+// Add item to cart
+function addToCart(cart, product, quantity) {
+  if (product.stock < quantity) {
+    return { success: false, error: "Insufficient stock" };
+  }
+  
+  // Check if item already in cart
+  for (var i = 0; i < len(cart.items); i = i + 1) {
+    if (cart.items[i].product.id == product.id) {
+      var newQty = cart.items[i].quantity + quantity;
+      if (product.stock < newQty) {
+        return { success: false, error: "Insufficient stock for total quantity" };
+      }
+      cart.items[i].quantity = newQty;
+      return { success: true, item: cart.items[i] };
+    }
+  }
+  
+  // Add new item
+  var item = createCartItem(product, quantity);
+  cart.items = Array.push(cart.items, item);
+  return { success: true, item: item };
+}
+
+// Remove item from cart
+function removeFromCart(cart, productId) {
+  for (var i = 0; i < len(cart.items); i = i + 1) {
+    if (cart.items[i].product.id == productId) {
+      var removed = cart.items[i];
+      cart.items = Array.slice(cart.items, 0, i) + Array.slice(cart.items, i + 1);
+      return { success: true, item: removed };
+    }
+  }
+  return { success: false, error: "Item not found" };
+}
+
+// Update item quantity
+function updateQuantity(cart, productId, quantity) {
+  if (quantity < 1) {
+    return removeFromCart(cart, productId);
+  }
+  
+  for (var i = 0; i < len(cart.items); i = i + 1) {
+    if (cart.items[i].product.id == productId) {
+      if (cart.items[i].product.stock < quantity) {
+        return { success: false, error: "Insufficient stock" };
+      }
+      cart.items[i].quantity = quantity;
+      return { success: true, item: cart.items[i] };
+    }
+  }
+  return { success: false, error: "Item not found" };
+}
+
+// Get cart item count
+function getCartCount(cart) {
+  var count = 0;
+  for (var i = 0; i < len(cart.items); i = i + 1) {
+    count = count + cart.items[i].quantity;
+  }
+  return count;
+}
+
+// Calculate item total
+function itemTotal(item) {
+  var price = item.product.price;
+  if (item.product.discount > 0) {
+    price = price * (1 - item.product.discount / 100);
+  }
+  return price * item.quantity;
+}
+
+// Calculate cart subtotal
+function cartSubtotal(cart) {
+  var total = 0;
+  for (var i = 0; i < len(cart.items); i = i + 1) {
+    total = total + itemTotal(cart.items[i]);
+  }
+  return total;
+}
+
+// Calculate tax
+function calculateTax(subtotal, rate) {
+  return subtotal * rate;
+}
+
+// Shipping cost calculation
+function calculateShipping(cart) {
+  var itemCount = getCartCount(cart);
+  var subtotal = cartSubtotal(cart);
+  
+  // Free shipping threshold
+  var freeShippingThreshold = 100;
+  
+  // Check if all items have free shipping
+  var allFree = true;
+  for (var i = 0; i < len(cart.items); i = i + 1) {
+    if (!cart.items[i].product.freeShipping) {
+      allFree = false;
+      break;
+    }
+  }
+  
+  if (allFree || subtotal >= freeShippingThreshold) {
+    return 0;
+  }
+  
+  // Base shipping + per-item fee
+  var baseShipping = 5.99;
+  var perItemFee = 1.99;
+  return baseShipping + (itemCount * perItemFee);
+}
+
+// Apply coupon
+function applyCoupon(cart, couponCode) {
+  var coupons = {
+    "SAVE10": { type: "percent", value: 10, minOrder: 50 },
+    "SAVE20": { type: "percent", value: 20, minOrder: 100 },
+    "FLAT5": { type: "fixed", value: 5, minOrder: 30 },
+    "FLAT10": { type: "fixed", value: 10, minOrder: 50 },
+    "FREESHIP": { type: "shipping", value: 0 }
+  };
+  
+  var coupon = coupons[couponCode];
+  if (!coupon) {
+    return { success: false, error: "Invalid coupon code" };
+  }
+  
+  var subtotal = cartSubtotal(cart);
+  if (subtotal < coupon.minOrder) {
+    return { success: false, error: "Minimum order $" + coupon.minOrder + " required" };
+  }
+  
+  cart.coupon = coupon;
+  return { success: true, coupon: coupon };
+}
+
+// Calculate discount
+function calculateDiscount(cart) {
+  if (!cart.coupon) return 0;
+  
+  var subtotal = cartSubtotal(cart);
+  var discount = 0;
+  
+  if (cart.coupon.type == "percent") {
+    discount = subtotal * (cart.coupon.value / 100);
+  } else if (cart.coupon.type == "fixed") {
+    discount = cart.coupon.value;
+    if (discount > subtotal) discount = subtotal;
+  }
+  
+  return discount;
+}
+
+// Calculate order total
+function calculateTotal(cart, taxRate, shippingCost) {
+  var subtotal = cartSubtotal(cart);
+  var discount = calculateDiscount(cart);
+  var shipping = shippingCost;
+  
+  if (cart.coupon && cart.coupon.type == "shipping") {
+    shipping = 0;
+  }
+  
+  var taxable = subtotal - discount;
+  var tax = calculateTax(taxable, taxRate);
+  
+  return {
+    subtotal: subtotal,
+    discount: discount,
+    shipping: shipping,
+    tax: tax,
+    total: taxable + shipping + tax
+  };
+}
+
+// Order class
+function createOrder(cart, customer, shippingAddress, billingAddress) {
+  var total = calculateTotal(cart, 0.08, calculateShipping(cart));
+  
+  return {
+    id: "ORD_" + generateId(),
+    items: Array.slice(cart.items),
+    customer: customer,
+    shippingAddress: shippingAddress,
+    billingAddress: billingAddress || shippingAddress,
+    subtotal: total.subtotal,
+    discount: total.discount,
+    shipping: total.shipping,
+    tax: total.tax,
+    total: total.total,
+    status: "pending",
+    paymentStatus: "pending",
+    createdAt: Date.now(),
+    updatedAt: Date.now()
+  };
+}
+
+// Generate ID
+function generateId() {
+  return Date.now() + "_" + Math.floor(Math.random() * 10000);
+}
+
+// Customer class
+function createCustomer(id, name, email, phone) {
+  return {
+    id: id,
+    name: name,
+    email: email,
+    phone: phone,
+    addresses: [],
+    orders: [],
+    wishlist: [],
+    createdAt: Date.now()
+  };
+}
+
+// Format price
+function formatPrice(amount) {
+  return "$" + toFixed(amount, 2);
+}
+
+// Round to 2 decimals
+function toFixed(num, decimals) {
+  var multiplier = 1;
+  for (var i = 0; i < decimals; i = i + 1) {
+    multiplier = multiplier * 10;
+  }
+  return Math.floor(num * multiplier) / multiplier;
+}
+
+// Format cart item
+function formatCartItem(item) {
+  var total = itemTotal(item);
+  return item.product.name + " x" + item.quantity + " = " + formatPrice(total);
+}
+
+// Format order summary
+function formatOrder(order) {
+  var output = "";
+  output = output + "==================================\n";
+  output = output + "          ORDER CONFIRMATION       \n";
+  output = output + "==================================\n";
+  output = output + "Order #: " + order.id + "\n";
+  output = output + "Date: " + Time.format(order.createdAt, "YYYY-MM-DD HH:mm") + "\n\n";
+  
+  output = output + "Items:\n";
+  for (var i = 0; i < len(order.items); i = i + 1) {
+    output = output + "  " + (i + 1) + ". " + formatCartItem(order.items[i]) + "\n";
+  }
+  
+  output = output + "\n----------------------------------\n";
+  output = output + "Subtotal:   " + formatPrice(order.subtotal) + "\n";
+  if (order.discount > 0) {
+    output = output + "Discount:   -" + formatPrice(order.discount) + "\n";
+  }
+  output = output + "Shipping:   " + formatPrice(order.shipping) + "\n";
+  output = output + "Tax:        " + formatPrice(order.tax) + "\n";
+  output = output + "----------------------------------\n";
+  output = output + "TOTAL:      " + formatPrice(order.total) + "\n";
+  output = output + "==================================\n";
+  
+  return output;
+}
+
+// ========== DEMO ==========
+
+print("=== E-Commerce Shopping Cart Demo ===\n");
+
+// Create products
+var products = [
+  createProduct(1, "MacBook Pro 14\"", 1999.99, CAT_ELECTRONICS, 10, "Apple MacBook Pro with M2 chip"),
+  createProduct(2, "iPhone 15 Pro", 999.99, CAT_ELECTRONICS, 25, "Latest iPhone with titanium design"),
+  createProduct(3, "Nike Air Max", 129.99, CAT_SPORTS, 50, "Comfortable running shoes"),
+  createProduct(4, "The Great Gatsby", 14.99, CAT_BOOKS, 100, "Classic novel by F. Scott Fitzgerald"),
+  createProduct(5, "Cotton T-Shirt", 24.99, CAT_CLOTHING, 200, "100% organic cotton"),
+  createProduct(6, "Coffee Maker", 79.99, CAT_HOME, 30, "Programmable drip coffee maker"),
+  createProduct(7, "Wireless Earbuds", 149.99, CAT_ELECTRONICS, 75, "Noise-cancelling earbuds"),
+  createProduct(8, "Yoga Mat", 34.99, CAT_SPORTS, 60, "Non-slip exercise mat")
+];
+
+// Set some discounts and free shipping
+products[0].discount = 5;
+products[0].freeShipping = true;
+products[1].freeShipping = true;
+products[3].freeShipping = true;
+
+// Display products
+print("--- Available Products ---");
+for (var i = 0; i < len(products); i = i + 1) {
+  var p = products[i];
+  var price = p.price;
+  if (p.discount > 0) {
+    price = price * (1 - p.discount / 100);
+  }
+  var shipping = p.freeShipping ? "FREE shipping" : "Shipping: $5.99+";
+  print((i + 1) + ". " + p.name + " - " + formatPrice(price) + " (" + p.category + ")");
+  print("   " + shipping + " | Stock: " + p.stock);
+}
+
+// Create customer
+var customer = createCustomer(1, "John Doe", "john@example.com", "+1234567890");
+
+// Create cart
+var cart = createCart();
+
+print("\n--- Adding Items to Cart ---");
+
+// Add items
+var result = addToCart(cart, products[0], 1); // MacBook
+print(result.message || formatCartItem(result.item));
+
+result = addToCart(cart, products[2], 1); // Nike
+print(result.message || formatCartItem(result.item));
+
+result = addToCart(cart, products[4], 3); // T-Shirts
+print(result.message || formatCartItem(result.item));
+
+result = addToCart(cart, products[7], 1); // Yoga Mat
+print(result.message || formatCartItem(result.item));
+
+// Try adding out of stock
+result = addToCart(cart, products[0], 100);
+print("Out of stock test: " + result.error);
+
+// Update quantity
+print("\n--- Updating Cart ---");
+updateQuantity(cart, products[4].id, 5);
+print("Updated T-Shirt quantity to 5");
+
+// Apply coupon
+print("\n--- Applying Coupon ---");
+result = applyCoupon(cart, "SAVE10");
+print("Applied SAVE10: " + (result.success ? "Success!" : result.error));
+
+// Calculate totals
+print("\n--- Order Summary ---");
+var shippingCost = calculateShipping(cart);
+var total = calculateTotal(cart, 0.08, shippingCost);
+
+print("Items in cart: " + getCartCount(cart));
+print("");
+print("Subtotal:  " + formatPrice(total.subtotal));
+print("Discount:  -" + formatPrice(total.discount));
+print("Shipping:  " + formatPrice(total.shipping));
+print("Tax (8%):  " + formatPrice(total.tax));
+print("--------------------------------");
+print("TOTAL:     " + formatPrice(total.total));
+
+// Show cart items
+print("\n--- Cart Details ---");
+for (var i = 0; i < len(cart.items); i = i + 1) {
+  print("  " + formatCartItem(cart.items[i]));
+}
+
+// Create order
+print("\n--- Creating Order ---");
+var shippingAddress = {
+  street: "123 Main St",
+  city: "San Francisco",
+  state: "CA",
+  zip: "94102",
+  country: "USA"
+};
+
+var order = createOrder(cart, customer, shippingAddress, null);
+print(formatOrder(order));
+
+// Add to customer's order history
+customer.orders = Array.push(customer.orders, order.id);
+
+print("--- Customer Order History ---");
+print("Customer: " + customer.name);
+print("Email: " + customer.email);
+print("Total orders: " + len(customer.orders));
+
+print("\n=== Demo Complete ===");

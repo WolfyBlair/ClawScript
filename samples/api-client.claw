@@ -1,0 +1,438 @@
+// REST API Client Library
+// Demonstrates: HTTP requests, CRUD operations, pagination, error handling
+
+// Note: Requires addons: ["http"] and allowNetwork: true
+
+// API Client configuration
+var BASE_URL = "https://jsonplaceholder.typicode.com";
+var DEFAULT_TIMEOUT = 10000;
+
+// Create HTTP client
+function createClient(baseUrl) {
+  return {
+    baseUrl: baseUrl || BASE_URL,
+    defaultHeaders: {
+      "Content-Type": "application/json"
+    },
+    authToken: null,
+    
+    setAuth: function(token) {
+      this.authToken = token;
+    },
+    
+    setHeader: function(key, value) {
+      this.defaultHeaders[key] = value;
+    },
+    
+    getUrl: function(endpoint) {
+      if (String.startsWith(endpoint, "http")) {
+        return endpoint;
+      }
+      var url = this.baseUrl;
+      if (!String.endsWith(url, "/") && !String.startsWith(endpoint, "/")) {
+        url = url + "/";
+      }
+      return url + endpoint;
+    },
+    
+    getHeaders: function(extraHeaders) {
+      var headers = {};
+      for (var key in this.defaultHeaders) {
+        headers[key] = this.defaultHeaders[key];
+      }
+      if (this.authToken) {
+        headers["Authorization"] = "Bearer " + this.authToken;
+      }
+      if (extraHeaders) {
+        for (var key in extraHeaders) {
+          headers[key] = extraHeaders[key];
+        }
+      }
+      return headers;
+    }
+  };
+}
+
+// GET request
+function get(client, endpoint, params, options) {
+  var url = client.getUrl(endpoint);
+  
+  // Add query params
+  if (params) {
+    var query = [];
+    for (var key in params) {
+      query = Array.push(query, key + "=" + encodeURIComponent(params[key]));
+    }
+    if (len(query) > 0) {
+      url = url + "?" + Array.join(query, "&");
+    }
+  }
+  
+  var requestOptions = {
+    headers: client.getHeaders(options?.headers),
+    timeout: options?.timeout || DEFAULT_TIMEOUT
+  };
+  
+  return Http.get(url, requestOptions);
+}
+
+// POST request
+function post(client, endpoint, data, options) {
+  var url = client.getUrl(endpoint);
+  var body = typeof data == "string" ? data : JSON.stringify(data);
+  
+  var requestOptions = {
+    headers: client.getHeaders(options?.headers),
+    timeout: options?.timeout || DEFAULT_TIMEOUT
+  };
+  
+  return Http.post(url, body, requestOptions);
+}
+
+// PUT request
+function put(client, endpoint, data, options) {
+  var url = client.getUrl(endpoint);
+  var body = typeof data == "string" ? data : JSON.stringify(data);
+  
+  var requestOptions = {
+    headers: client.getHeaders(options?.headers),
+    timeout: options?.timeout || DEFAULT_TIMEOUT
+  };
+  
+  return Http.put(url, body, requestOptions);
+}
+
+// PATCH request
+function patch(client, endpoint, data, options) {
+  var url = client.getUrl(endpoint);
+  var body = typeof data == "string" ? data : JSON.stringify(data);
+  
+  var requestOptions = {
+    headers: client.getHeaders(options?.headers),
+    timeout: options?.timeout || DEFAULT_TIMEOUT
+  };
+  
+  return Http.patch(url, body, requestOptions);
+}
+
+// DELETE request
+function del(client, endpoint, options) {
+  var url = client.getUrl(endpoint);
+  
+  var requestOptions = {
+    headers: client.getHeaders(options?.headers),
+    timeout: options?.timeout || DEFAULT_TIMEOUT
+  };
+  
+  return Http.delete(url, requestOptions);
+}
+
+// Encode URI component
+function encodeURIComponent(str) {
+  return String.replace(String.replace(String.replace(String.replace(String.replace(String.replace(
+    String.replace(str, "%", "%25"),
+    "!", "%21"),
+    "#", "%23"),
+    "$", "%24"),
+    "&", "%26"),
+    "'", "%27"),
+    "(", "%28"),
+    ")", "%29"),
+    "*", "%2A"),
+    "+", "%2B"),
+    ",", "%2C"),
+    "/", "%2F"),
+    ":", "%3A"),
+    ";", "%3B"),
+    "=", "%3D"),
+    "?", "%3F"),
+    "@", "%40"),
+    "[", "%5B"),
+    "]", "%5D");
+}
+
+// ========== DATA MAPPING ==========
+
+// Map JSON to object
+function mapToObject(json) {
+  if (typeof json == "string") {
+    try {
+      return JSON.parse(json);
+    } catch {
+      return null;
+    }
+  }
+  return json;
+}
+
+// Extract data from response
+function extractData(response) {
+  if (!response) {
+    return { error: "No response" };
+  }
+  if (response.error) {
+    return { error: response.error };
+  }
+  if (!response.ok) {
+    return { error: "HTTP " + response.status + ": " + response.statusText };
+  }
+  return { 
+    ok: true, 
+    data: response.body, 
+    status: response.status,
+    headers: response.headers 
+  };
+}
+
+// ========== CRUD OPERATIONS ==========
+
+// Generic CRUD for any resource
+function createCrud(client, resource) {
+  return {
+    resource: resource,
+    
+    // List all with optional filtering and pagination
+    list: function(params, options) {
+      var result = get(client, this.resource, params, options);
+      return extractData(result);
+    },
+    
+    // Get single by ID
+    get: function(id, options) {
+      var result = get(client, this.resource + "/" + id, null, options);
+      return extractData(result);
+    },
+    
+    // Create new
+    create: function(data, options) {
+      var result = post(client, this.resource, data, options);
+      return extractData(result);
+    },
+    
+    // Update (full)
+    update: function(id, data, options) {
+      var result = put(client, this.resource + "/" + id, data, options);
+      return extractData(result);
+    },
+    
+    // Update (partial)
+    patch: function(id, data, options) {
+      var result = patch(client, this.resource + "/" + id, data, options);
+      return extractData(result);
+    },
+    
+    // Delete
+    remove: function(id, options) {
+      var result = del(client, this.resource + "/" + id, options);
+      return extractData(result);
+    },
+    
+    // Pagination helper
+    paginate: function(page, limit, params, options) {
+      var p = params || {};
+      p._page = page;
+      p._limit = limit;
+      return this.list(p, options);
+    }
+  };
+}
+
+// ========== API EXAMPLES ==========
+
+// Users API
+function createUsersApi(client) {
+  var crud = createCrud(client, "users");
+  
+  return {
+    ...crud,
+    
+    // Get user's posts
+    getPosts: function(userId, options) {
+      var result = get(client, "posts", { userId: userId }, options);
+      return extractData(result);
+    },
+    
+    // Get user's albums
+    getAlbums: function(userId, options) {
+      var result = get(client, "albums", { userId: userId }, options);
+      return extractData(result);
+    },
+    
+    // Get user's todos
+    getTodos: function(userId, options) {
+      var result = get(client, "todos", { userId: userId }, options);
+      return extractData(result);
+    }
+  };
+}
+
+// Posts API
+function createPostsApi(client) {
+  var crud = createCrud(client, "posts");
+  
+  return {
+    ...crud,
+    
+    // Get comments for post
+    getComments: function(postId, options) {
+      var result = get(client, "posts/" + postId + "/comments", null, options);
+      return extractData(result);
+    }
+  };
+}
+
+// ========== DEMO ==========
+
+// Note: This demo shows the library structure
+// Run with actual HTTP addon enabled for live API calls
+
+print("=== REST API Client Library Demo ===\n");
+
+// Create API client
+var api = createClient("https://jsonplaceholder.typicode.com");
+
+print("--- Client Created ---");
+print("Base URL: " + api.baseUrl);
+
+// Set authentication
+api.setAuth("my-secret-token");
+print("Auth: Bearer my-secret-token");
+
+// Create resource APIs
+var users = createUsersApi(api);
+var posts = createPostsApi(api);
+
+print("\n--- Available APIs ---");
+print("- users: list, get, create, update, patch, remove");
+print("- posts: list, get, create, update, patch, remove, getComments");
+
+// Demo: Building requests (without actually calling)
+print("\n--- Request Examples ---");
+
+print("\n1. List all users:");
+print("   GET /users");
+
+print("\n2. Get user by ID:");
+print("   GET /users/1");
+
+print("\n3. Filter users:");
+print("   GET /users?username=Bret");
+
+print("\n4. Create user:");
+print('   POST /users');
+print('   { "name": "John", "email": "john@example.com" }');
+
+print("\n5. Update user:");
+print('   PUT /users/1');
+print('   { "name": "John Updated", "email": "johnnew@example.com" }');
+
+print("\n6. Patch user:");
+print('   PATCH /users/1');
+print('   { "email": "newemail@example.com" }');
+
+print("\n7. Delete user:");
+print("   DELETE /users/1");
+
+print("\n8. Nested resources:");
+print("   GET /users/1/posts");
+print("   GET /posts/1/comments");
+
+print("\n9. Pagination:");
+print("   GET /posts?_page=1&_limit=10");
+
+print("\n10. Search:");
+print("   GET /posts?title=hello");
+
+// Simulate API response structure
+print("\n--- Example Response Structure ---");
+var exampleResponse = {
+  ok: true,
+  data: [
+    {
+      id: 1,
+      name: "Leanne Graham",
+      username: "Bret",
+      email: "Sincere@april.biz",
+      address: {
+        street: "Kulas Light",
+        suite: "Apt. 556",
+        city: "Gwenborough",
+        zipcode: "92998-3874"
+      },
+      phone: "1-770-736-8031 x56442",
+      website: "hildegard.org"
+    }
+  ],
+  status: 200,
+  headers: {
+    "content-type": "application/json; charset=utf-8"
+  }
+};
+
+print("Response format:");
+print("  {");
+print("    ok: boolean,");
+print("    data: array|object,");
+print("    status: number,");
+print("    headers: object");
+print("  }");
+
+// Error handling example
+print("\n--- Error Handling ---");
+print("Error response format:");
+print("  {");
+print("    error: string,");
+print("    status: number (if HTTP error)");
+print("  }");
+
+// Usage pattern
+print("\n--- Usage Pattern ---");
+print(`
+var client = createClient("https://api.example.com");
+var usersApi = createUsersApi(client);
+
+// List users
+var result = usersApi.list({ active: true });
+if (result.ok) {
+  print("Users: " + len(result.data));
+} else {
+  print("Error: " + result.error);
+}
+
+// Get single user
+var user = usersApi.get(1);
+if (user.ok) {
+  print("User: " + user.data.name);
+}
+
+// Create user
+var newUser = usersApi.create({
+  name: "John Doe",
+  email: "john@example.com"
+});
+`);
+
+// Pagination example
+print("\n--- Pagination Example ---");
+print(`
+var page = 1;
+var limit = 10;
+var allPosts = [];
+
+while (true) {
+  var result = posts.list({ _page: page, _limit: limit });
+  if (!result.ok || len(result.data) == 0) break;
+  
+  allPosts = allPosts + result.data;
+  
+  if (len(result.data) < limit) break;
+  page = page + 1;
+}
+
+print("Total posts: " + len(allPosts));
+`);
+
+print("\n=== Demo Complete ===");
+print("\nTo test with live API, ensure:");
+print("1. addons includes 'http'");
+print("2. allowNetwork is true in config");

@@ -1,0 +1,289 @@
+// Social Network Data Model
+// Demonstrates: Objects, Arrays, Functions, Control Flow
+
+// User class simulation using objects
+function createUser(id, username, name, email) {
+  return {
+    id: id,
+    username: username,
+    name: name,
+    email: email,
+    friends: [],
+    posts: [],
+    followers: 0,
+    following: 0,
+    createdAt: Date.now(),
+    bio: "",
+    location: "",
+    verified: false
+  };
+}
+
+// Post creation
+function createPost(authorId, content, media) {
+  return {
+    id: generateId(),
+    authorId: authorId,
+    content: content,
+    media: media || null,
+    likes: [],
+    comments: [],
+    shares: 0,
+    createdAt: Date.now(),
+    edited: false
+  };
+}
+
+// Comment creation
+function createComment(postId, authorId, content) {
+  return {
+    id: generateId(),
+    postId: postId,
+    authorId: authorId,
+    content: content,
+    likes: [],
+    createdAt: Date.now()
+  };
+}
+
+// Generate unique ID
+function generateId() {
+  return "id_" + Date.now() + "_" + Math.floor(Math.random() * 10000);
+}
+
+// Follow user
+function follow(user, targetUser) {
+  if (user.id == targetUser.id) {
+    return { success: false, error: "Cannot follow yourself" };
+  }
+  if (has(user.friends, targetUser.id)) {
+    return { success: false, error: "Already following" };
+  }
+  user.friends = Array.push(user.friends, targetUser.id);
+  user.following = user.following + 1;
+  targetUser.followers = targetUser.followers + 1;
+  return { success: true, message: "Now following " + targetUser.username };
+}
+
+// Unfollow user
+function unfollow(user, targetUser) {
+  var idx = Array.indexOf(user.friends, targetUser.id);
+  if (idx == -1) {
+    return { success: false, error: "Not following" };
+  }
+  // Remove from friends array
+  user.friends = Array.slice(user.friends, 0, idx) + Array.slice(user.friends, idx + 1);
+  user.following = user.following - 1;
+  targetUser.followers = targetUser.followers - 1;
+  return { success: true, message: "Unfollowed " + targetUser.username };
+}
+
+// Like a post
+function likePost(post, userId) {
+  if (Array.includes(post.likes, userId)) {
+    return { success: false, error: "Already liked" };
+  }
+  post.likes = Array.push(post.likes, userId);
+  return { success: true, likes: len(post.likes) };
+}
+
+// Unlike a post
+function unlikePost(post, userId) {
+  var idx = Array.indexOf(post.likes, userId);
+  if (idx == -1) {
+    return { success: false, error: "Not liked" };
+  }
+  post.likes = Array.slice(post.likes, 0, idx) + Array.slice(post.likes, idx + 1);
+  return { success: true, likes: len(post.likes) };
+}
+
+// Add comment to post
+function addComment(post, comment) {
+  post.comments = Array.push(post.comments, comment);
+  return { success: true, comments: len(post.comments) };
+}
+
+// Get user feed
+function getFeed(posts, user, limit) {
+  var feed = [];
+  for (var i = 0; i < len(posts); i = i + 1) {
+    var post = posts[i];
+    // Include own posts and friends' posts
+    if (post.authorId == user.id || Array.includes(user.friends, post.authorId)) {
+      feed = Array.push(feed, post);
+    }
+    if (len(feed) >= limit) {
+      break;
+    }
+  }
+  return feed;
+}
+
+// Format post for display
+function formatPost(post, author) {
+  var output = "";
+  output = output + "----------------------------------------\n";
+  output = output + "@" + author.username + " (" + author.name + ")\n";
+  output = output + post.content + "\n\n";
+  output = output + "❤️ " + len(post.likes) + "  💬 " + len(post.comments) + "  🔄 " + post.shares + "\n";
+  output = output + Time.format(post.createdAt, "MM/DD/YYYY HH:mm") + "\n";
+  output = output + "----------------------------------------";
+  return output;
+}
+
+// Search users
+function searchUsers(users, query) {
+  var results = [];
+  var q = String.lower(query);
+  for (var i = 0; i < len(users); i = i + 1) {
+    var u = users[i];
+    if (String.includes(String.lower(u.username), q) || String.includes(String.lower(u.name), q)) {
+      results = Array.push(results, u);
+    }
+  }
+  return results;
+}
+
+// Get trending posts (most likes)
+function getTrendingPosts(posts, limit) {
+  var sorted = Array.slice(posts);
+  sorted = Array.sort(sorted, function(a, b) {
+    return len(b.likes) - len(a.likes);
+  });
+  return Array.slice(sorted, 0, limit);
+}
+
+// Calculate engagement rate
+function engagementRate(post) {
+  var likes = len(post.likes);
+  var comments = len(post.comments);
+  var shares = post.shares;
+  var total = likes + comments + shares;
+  if (total == 0) return 0;
+  return (total / 100) * 100; // Simplified percentage
+}
+
+// ========== DEMO ==========
+
+print("=== Social Network Demo ===\n");
+
+// Create users
+var alice = createUser(1, "alice_smith", "Alice Smith", "alice@example.com");
+var bob = createUser(2, "bob_jones", "Bob Jones", "bob@example.com");
+var charlie = createUser(3, "charlie_d", "Charlie Day", "charlie@example.com");
+var diana = createUser(4, "diana_prince", "Diana Prince", "diana@example.com");
+
+var users = [alice, bob, charlie, diana];
+
+// Set profiles
+alice.bio = "Software Engineer | Coffee Lover";
+alice.location = "San Francisco, CA";
+alice.verified = true;
+
+bob.bio = "Digital Artist";
+bob.location = "New York, NY";
+
+charlie.bio = "Tech Entrepreneur";
+
+diana.bio = "Product Manager";
+diana.location = "Seattle, WA";
+
+// Create posts
+var post1 = createPost(alice.id, "Just launched my new app! 🚀 Check it out at example.com", null);
+var post2 = createPost(bob.id, "New artwork for sale! DM for details 🎨", null);
+var post3 = createPost(charlie.id, "Excited to announce our Series B funding! Thank you to all our investors.", null);
+var post4 = createPost(diana.id, "Tips for product management:\n1. Listen to users\n2. Prioritize ruthlessly\n3. Ship fast", null);
+var post5 = createPost(alice.id, "Beautiful sunset in SF today 🌅", null);
+
+var posts = [post1, post2, post3, post4, post5];
+
+// Follow actions
+print("--- Following Actions ---");
+var result = follow(alice, bob);
+print(result.message);
+
+result = follow(alice, charlie);
+print(result.message);
+
+result = follow(alice, diana);
+print(result.message);
+
+follow(bob, alice);
+follow(charlie, alice);
+follow(diana, alice);
+
+// Like posts
+print("\n--- Interactions ---");
+likePost(post1, bob.id);
+likePost(post1, charlie.id);
+likePost(post1, diana.id);
+likePost(post2, alice.id);
+likePost(post4, alice.id);
+likePost(post4, bob.id);
+likePost(post4, charlie.id);
+
+// Add comments
+var comment1 = createComment(post1.id, bob.id, "Congrats! 🎉");
+addComment(post1, comment1);
+
+var comment2 = createComment(post1.id, charlie.id, "This looks amazing!");
+addComment(post1, comment2);
+
+var comment3 = createComment(post4.id, alice.id, "Great tips!");
+addComment(post4, comment3);
+
+// Display posts
+print("\n--- All Posts ---");
+for (var i = 0; i < len(posts); i = i + 1) {
+  var p = posts[i];
+  var author = users[0]; // Simplified - find author
+  for (var j = 0; j < len(users); j = j + 1) {
+    if (users[j].id == p.authorId) {
+      author = users[j];
+      break;
+    }
+  }
+  print(formatPost(p, author));
+  print("");
+}
+
+// User stats
+print("\n--- User Statistics ---");
+for (var i = 0; i < len(users); i = i + 1) {
+  var u = users[i];
+  print("@" + u.username + ": " + u.followers + " followers, " + u.following + " following, " + len(u.posts) + " posts");
+}
+
+// Get feed for Alice
+print("\n--- Alice's Feed ---");
+var feed = getFeed(posts, alice, 10);
+for (var i = 0; i < len(feed); i = i + 1) {
+  var p = feed[i];
+  var author = users[0];
+  for (var j = 0; j < len(users); j = j + 1) {
+    if (users[j].id == p.authorId) {
+      author = users[j];
+      break;
+    }
+  }
+  print(formatPost(p, author));
+  print("");
+}
+
+// Trending posts
+print("\n--- Trending Posts ---");
+var trending = getTrendingPosts(posts, 3);
+for (var i = 0; i < len(trending); i = i + 1) {
+  var t = trending[i];
+  print((i + 1) + ". " + t.content + " - " + len(t.likes) + " likes");
+}
+
+// Search
+print("\n--- Search Results for 'alice' ---");
+var results = searchUsers(users, "alice");
+for (var i = 0; i < len(results); i = i + 1) {
+  var r = results[i];
+  print("@" + r.username + " - " + r.name);
+}
+
+print("\n=== Demo Complete ===");

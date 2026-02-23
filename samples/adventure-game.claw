@@ -1,0 +1,610 @@
+// Text-Based Adventure Game Engine
+// Demonstrates: Game loop, state management, inventory, combat, quests
+
+// Game constants
+var DIRECTION_NORTH = "north";
+var DIRECTION_SOUTH = "south";
+var DIRECTION_EAST = "east";
+var DIRECTION_WEST = "west";
+
+var ITEM_WEAPON = "weapon";
+var ITEM_ARMOR = "armor";
+var ITEM_POTION = "potion";
+var ITEM_KEY = "key";
+var ITEM_TREASURE = "treasure";
+
+var ENEMY_GOBLIN = "goblin";
+var ENEMY_ORC = "orc";
+var ENEMY_DRAGON = "dragon";
+
+var QUEST_ACTIVE = "active";
+var QUEST_COMPLETED = "completed";
+var QUEST_FAILED = "failed";
+
+// ========== GAME ENTITIES ==========
+
+// Create player
+function createPlayer(name) {
+  return {
+    name: name,
+    level: 1,
+    experience: 0,
+    health: 100,
+    maxHealth: 100,
+    mana: 50,
+    maxMana: 50,
+    strength: 10,
+    defense: 5,
+    gold: 100,
+    inventory: [],
+    equipped: {
+      weapon: null,
+      armor: null,
+      accessory: null
+    },
+    quests: [],
+    location: "town_square",
+    damage: 0,
+    isDead: false
+  };
+}
+
+// Calculate player damage
+function getPlayerDamage(player) {
+  var base = player.strength;
+  var weapon = player.equipped.weapon;
+  var bonus = weapon ? weapon.power : 0;
+  return base + bonus + player.damage;
+}
+
+// Calculate player defense
+function getPlayerDefense(player) {
+  var base = player.defense;
+  var armor = player.equipped.armor;
+  var bonus = armor ? armor.power : 0;
+  return base + bonus;
+}
+
+// Create item
+function createItem(id, name, type, power, value, description) {
+  return {
+    id: id,
+    name: name,
+    type: type,
+    power: power,
+    value: value,
+    description: description || "",
+    usable: type == ITEM_POTION,
+    equippable: type == ITEM_WEAPON || type == ITEM_ARMOR
+  };
+}
+
+// Create enemy
+function createEnemy(id, name, health, strength, defense, gold, experience, description) {
+  return {
+    id: id,
+    name: name,
+    health: health,
+    maxHealth: health,
+    strength: strength,
+    defense: defense,
+    gold: gold,
+    experience: experience,
+    description: description || "",
+    isDead: false
+  };
+}
+
+// Create location
+function createLocation(id, name, description, exits, items, enemies, npcs) {
+  return {
+    id: id,
+    name: name,
+    description: description,
+    exits: exits || {},
+    items: items || [],
+    enemies: enemies || [],
+    npcs: npcs || [],
+    visited: false
+  };
+}
+
+// Create quest
+function createQuest(id, title, description, objectives, rewards, requiredLevel) {
+  return {
+    id: id,
+    title: title,
+    description: description,
+    objectives: objectives,
+    status: QUEST_ACTIVE,
+    progress: {},
+    rewards: rewards,
+    requiredLevel: requiredLevel || 1,
+    completedAt: null
+  };
+}
+
+// ========== GAME MECHANICS ==========
+
+// Add item to inventory
+function addToInventory(player, item) {
+  player.inventory = Array.push(player.inventory, item);
+  return { success: true, message: "Picked up: " + item.name };
+}
+
+// Remove item from inventory
+function removeFromInventory(player, itemId) {
+  for (var i = 0; i < len(player.inventory); i = i + 1) {
+    if (player.inventory[i].id == itemId) {
+      var item = player.inventory[i];
+      player.inventory = Array.slice(player.inventory, 0, i) + Array.slice(player.inventory, i + 1);
+      return { success: true, item: item };
+    }
+  }
+  return { success: false, error: "Item not found" };
+}
+
+// Equip item
+function equipItem(player, item) {
+  if (!item.equippable) {
+    return { success: false, error: "Cannot equip this item" };
+  }
+  
+  var slot = item.type == ITEM_WEAPON ? "weapon" : "armor";
+  var oldItem = player.equipped[slot];
+  
+  // Unequip old item
+  if (oldItem) {
+    player.equipped[slot] = null;
+    addToInventory(player, oldItem);
+  }
+  
+  // Equip new item
+  removeFromInventory(player, item.id);
+  player.equipped[slot] = item;
+  
+  return { success: true, message: "Equipped: " + item.name, oldItem: oldItem };
+}
+
+// Use potion
+function usePotion(player, item) {
+  if (item.type != ITEM_POTION) {
+    return { success: false, error: "Not a usable item" };
+  }
+  
+  var heal = item.power;
+  player.health = Math.min(player.health + heal, player.maxHealth);
+  removeFromInventory(player, item.id);
+  
+  return { success: true, message: "Restored " + heal + " health!" };
+}
+
+// Start combat
+function startCombat(player, enemy) {
+  print("\n⚔️  COMBAT STARTED: " + player.name + " vs " + enemy.name + " ⚔️");
+  print(enemy.description);
+  print("Enemy HP: " + enemy.health + "/" + enemy.maxHealth);
+  
+  while (!player.isDead && !enemy.isDead) {
+    // Player attacks
+    var playerDamage = getPlayerDamage(player);
+    var actualDamage = Math.max(1, playerDamage - enemy.defense);
+    enemy.health = enemy.health - actualDamage;
+    
+    print("\n> You attack for " + actualDamage + " damage!");
+    
+    if (enemy.health <= 0) {
+      enemy.isDead = true;
+      break;
+    }
+    
+    // Enemy attacks
+    var enemyDamage = Math.max(1, enemy.strength - getPlayerDefense(player));
+    player.health = player.health - enemyDamage;
+    
+    print("> " + enemy.name + " attacks for " + enemyDamage + " damage!");
+    print("  Your HP: " + player.health + "/" + player.maxHealth);
+    print("  Enemy HP: " + enemy.health + "/" + enemy.maxHealth);
+    
+    if (player.health <= 0) {
+      player.isDead = true;
+      break;
+    }
+  }
+  
+  // Combat results
+  if (player.isDead) {
+    print("\n💀 You have been defeated! 💀");
+    return { victory: false };
+  }
+  
+  // Victory
+  print("\n🎉 VICTORY! 🎉");
+  print("You defeated " + enemy.name + "!");
+  print("Gained " + enemy.experience + " XP");
+  print("Found " + enemy.gold + " gold");
+  
+  player.gold = player.gold + enemy.gold;
+  gainExperience(player, enemy.experience);
+  
+  return { 
+    victory: true, 
+    gold: enemy.gold, 
+    experience: enemy.experience 
+  };
+}
+
+// Gain experience and level up
+function gainExperience(player, amount) {
+  player.experience = player.experience + amount;
+  
+  var expNeeded = player.level * 100;
+  while (player.experience >= expNeeded) {
+    player.level = player.level + 1;
+    player.experience = player.experience - expNeeded;
+    player.maxHealth = player.maxHealth + 10;
+    player.health = player.maxHealth;
+    player.maxMana = player.maxMana + 5;
+    player.mana = player.maxMana;
+    player.strength = player.strength + 2;
+    player.defense = player.defense + 1;
+    
+    print("\n🎊 LEVEL UP! You are now level " + player.level + "!");
+    print("  HP: " + player.maxHealth + " | STR: " + player.strength + " | DEF: " + player.defense);
+    
+    expNeeded = player.level * 100;
+  }
+}
+
+// Accept quest
+function acceptQuest(player, quest) {
+  // Check level requirement
+  if (player.level < quest.requiredLevel) {
+    return { success: false, error: "Requires level " + quest.requiredLevel };
+  }
+  
+  // Check if already accepted
+  for (var i = 0; i < len(player.quests); i = i + 1) {
+    if (player.quests[i].id == quest.id) {
+      return { success: false, error: "Quest already accepted" };
+    }
+  }
+  
+  // Initialize progress
+  quest.progress = {};
+  for (var i = 0; i < len(quest.objectives); i = i + 1) {
+    quest.progress[quest.objectives[i]] = 0;
+  }
+  
+  player.quests = Array.push(player.quests, quest);
+  return { success: true, message: "Quest accepted: " + quest.title };
+}
+
+// Update quest progress
+function updateQuestProgress(player, objective, amount) {
+  for (var i = 0; i < len(player.quests); i = i + 1) {
+    var quest = player.quests[i];
+    if (quest.status == QUEST_ACTIVE && has(quest.progress, objective)) {
+      quest.progress[objective] = quest.progress[objective] + amount;
+      
+      // Check if objective complete
+      var objIndex = Array.indexOf(quest.objectives, objective);
+      var target = quest.objectives[objIndex + 1]; // Target is after objective name
+      
+      if (quest.progress[objective] >= target) {
+        quest.progress[objective] = target;
+        print("✓ Quest objective complete: " + objective);
+      }
+      
+      return { success: true };
+    }
+  }
+  return { success: false };
+}
+
+// Check quest completion
+function checkQuestCompletion(player) {
+  for (var i = 0; i < len(player.quests); i = i + 1) {
+    var quest = player.quests[i];
+    if (quest.status == QUEST_ACTIVE) {
+      var allComplete = true;
+      for (var j = 0; j < len(quest.objectives); j = j + 2) {
+        var obj = quest.objectives[j];
+        var target = quest.objectives[j + 1];
+        if (quest.progress[obj] < target) {
+          allComplete = false;
+          break;
+        }
+      }
+      
+      if (allComplete) {
+        quest.status = QUEST_COMPLETED;
+        quest.completedAt = Date.now();
+        
+        // Give rewards
+        print("\n✅ QUEST COMPLETED: " + quest.title);
+        
+        if (quest.rewards.gold) {
+          player.gold = player.gold + quest.rewards.gold;
+          print("  Gold: +" + quest.rewards.gold);
+        }
+        if (quest.rewards.experience) {
+          gainExperience(player, quest.rewards.experience);
+        }
+        if (quest.rewards.items) {
+          for (var k = 0; k < len(quest.rewards.items); k = k + 1) {
+            addToInventory(player, quest.rewards.items[k]);
+            print("  Item: " + quest.rewards.items[k].name);
+          }
+        }
+        
+        return { success: true, quest: quest };
+      }
+    }
+  }
+  return { success: false };
+}
+
+// Move player
+function movePlayer(player, direction, locations) {
+  var current = locations[player.location];
+  if (!current) {
+    return { success: false, error: "Unknown location" };
+  }
+  
+  if (!has(current.exits, direction)) {
+    return { success: false, error: "Cannot go " + direction + " from here" };
+  }
+  
+  var newLocationId = current.exits[direction];
+  var newLocation = locations[newLocationId];
+  
+  if (!newLocation) {
+    return { success: false, error: "Invalid location" };
+  }
+  
+  player.location = newLocationId;
+  newLocation.visited = true;
+  
+  return { 
+    success: true, 
+    location: newLocation,
+    message: "You move " + direction + " to " + newLocation.name 
+  };
+}
+
+// ========== GAME WORLD ==========
+
+function createGameWorld() {
+  var locations = {};
+  
+  // Town Square
+  locations["town_square"] = createLocation(
+    "town_square",
+    "Town Square",
+    "You stand in the bustling town square. A fountain bubbles in the center.",
+    {
+      "north": "shop",
+      "east": "tavern",
+      "west": "forest_entrance"
+    },
+    [],
+    [],
+    []
+  );
+  
+  // Shop
+  locations["shop"] = createLocation(
+    "shop",
+    "Item Shop",
+    "The shop is filled with weapons, armor, and supplies.",
+    { "south": "town_square" },
+    [
+      createItem("sword", "Iron Sword", ITEM_WEAPON, 5, 50, "A basic iron sword"),
+      createItem("shield", "Wooden Shield", ITEM_ARMOR, 3, 30, "A simple wooden shield"),
+      createItem("potion_small", "Small Potion", ITEM_POTION, 20, 10, "Restores 20 HP"),
+      createItem("potion_large", "Large Potion", ITEM_POTION, 50, 25, "Restores 50 HP")
+    ],
+    [],
+    []
+  );
+  
+  // Tavern
+  locations["tavern"] = createLocation(
+    "tavern",
+    "The Rusty Tankard",
+    "The tavern is warm and filled with the smell of ale.",
+    { "west": "town_square" },
+    [],
+    [],
+    []
+  );
+  
+  // Forest
+  locations["forest_entrance"] = createLocation(
+    "forest_entrance",
+    "Forest Entrance",
+    "Dark trees loom ahead. You hear strange sounds from within.",
+    { "east": "town_square", "west": "deep_forest" },
+    [
+      createItem("herb", "Healing Herb", ITEM_POTION, 10, 5, "A medicinal herb")
+    ],
+    [ENEMY_GOBLIN],
+    []
+  );
+  
+  // Deep Forest
+  locations["deep_forest"] = createLocation(
+    "deep_forest",
+    "Deep Forest",
+    "The trees are thick here. Something watches from the shadows.",
+    { "east": "forest_entrance", "north": "cave_entrance" },
+    [],
+    [ENEMY_GOBLIN, ENEMY_ORC],
+    []
+  );
+  
+  // Cave
+  locations["cave_entrance"] = createLocation(
+    "cave_entrance",
+    "Cave Entrance",
+    "A dark cave mouth yawns before you. Cold air flows from within.",
+    { "south": "deep_forest", "in": "cave" },
+    [createItem("key", "Cave Key", ITEM_KEY, 0, 100, "Opens the cave door")],
+    [],
+    []
+  );
+  
+  // Dragon's Cave
+  locations["cave"] = createLocation(
+    "cave",
+    "Dragon's Lair",
+    "Massive chambers filled with treasure. A dragon sleeps atop a pile of gold!",
+    { "out": "cave_entrance" },
+    [
+      createItem("treasure", "Dragon's Treasure", ITEM_TREASURE, 0, 1000, "A pile of gold and jewels")
+    ],
+    [ENEMY_DRAGON],
+    []
+  );
+  
+  return locations;
+}
+
+// Create enemies
+function createEnemies() {
+  return {
+    "goblin": createEnemy("goblin", "Goblin", 30, 8, 2, 10, 20, "A small but vicious green creature"),
+    "orc": createEnemy("orc", "Orc", 60, 15, 5, 30, 50, "A large, brutish orc warrior"),
+    "dragon": createEnemy("dragon", "Ancient Dragon", 200, 30, 15, 500, 500, "A massive dragon with scales like armor")
+  };
+}
+
+// Create quests
+function createQuests() {
+  return {
+    "goblin_slayer": createQuest(
+      "goblin_slayer",
+      "Goblin Slayer",
+      "Clear the forest of goblins",
+      ["goblins_killed", 3, "goblins_killed"],
+      { gold: 50, experience: 100 },
+      1
+    ),
+    "treasure_hunter": createQuest(
+      "treasure_hunter",
+      "Treasure Hunter",
+      "Find the dragon's treasure",
+      ["treasure_found", 1],
+      { gold: 200, experience: 300 },
+      3
+    )
+  };
+}
+
+// ========== DEMO ==========
+
+print("=== Text Adventure Game Demo ===\n");
+
+// Create game world
+var locations = createGameWorld();
+var enemies = createEnemies();
+var quests = createQuests();
+
+// Create player
+var player = createPlayer("Hero");
+
+print("--- Welcome, " + player.name + "! ---");
+print("Level: " + player.level + " | HP: " + player.health + "/" + player.maxHealth);
+print("STR: " + player.strength + " | DEF: " + player.defense);
+print("Gold: " + player.gold);
+
+// Starting items
+addToInventory(player, createItem("dagger", "Dagger", ITEM_WEAPON, 3, 25, "A small dagger"));
+equipItem(player, player.inventory[0]);
+
+print("\n--- Inventory ---");
+for (var i = 0; i < len(player.inventory); i = i + 1) {
+  var item = player.inventory[i];
+  print("- " + item.name + " (" + item.type + ") power: " + item.power);
+}
+
+// Accept quest
+print("\n--- Quests ---");
+var result = acceptQuest(player, quests["goblin_slayer"]);
+print(result.message || result.error);
+
+// Explore locations
+print("\n--- Exploring ---");
+
+var loc = movePlayer(player, "west", locations);
+print(loc.message);
+print(loc.location.description);
+
+// Pick up items
+if (len(loc.location.items) > 0) {
+  print("\nYou found:");
+  for (var i = 0; i < len(loc.location.items); i = i + 1) {
+    var item = loc.location.items[i];
+    print("- " + item.name + ": " + item.description);
+    addToInventory(player, item);
+  }
+  loc.location.items = [];
+}
+
+// Fight goblin
+if (len(loc.location.enemies) > 0) {
+  var enemy = enemies[loc.location.enemies[0]];
+  print("\nA wild " + enemy.name + " appears!");
+  var combat = startCombat(player, enemy);
+  
+  // Update quest progress
+  if (combat.victory) {
+    updateQuestProgress(player, "goblins_killed", 1);
+  }
+}
+
+// Move deeper
+movePlayer(player, "west", locations);
+print("\n" + locations[player.location].description);
+
+if (len(locations[player.location].enemies) > 0) {
+  var enemy2 = enemies[locations[player.location].enemies[0]];
+  print("\nA " + enemy2.name + " blocks your path!");
+  startCombat(player, enemy2);
+  updateQuestProgress(player, "goblins_killed", 1);
+}
+
+// Check quest
+checkQuestCompletion(player);
+
+// Player stats after combat
+print("\n--- Player Stats ---");
+print("Level: " + player.level + " | XP: " + player.experience + "/" + (player.level * 100));
+print("HP: " + player.health + "/" + player.maxHealth);
+print("Gold: " + player.gold);
+
+// Inventory
+print("\n--- Inventory ---");
+print("Gold: " + player.gold);
+print("Items:");
+for (var i = 0; i < len(player.inventory); i = i + 1) {
+  var item = player.inventory[i];
+  print("  - " + item.name);
+}
+print("Equipped:");
+print("  Weapon: " + (player.equipped.weapon ? player.equipped.weapon.name : "None"));
+print("  Armor: " + (player.equipped.armor ? player.equipped.armor.name : "None"));
+
+// Quests
+print("\n--- Active Quests ---");
+for (var i = 0; i < len(player.quests); i = i + 1) {
+  var q = player.quests[i];
+  print("- " + q.title + " [" + q.status + "]");
+}
+
+print("\n=== Demo Complete ===");
+print("\nTo continue the adventure:");
+print("1. Visit the shop to buy better equipment");
+print("2. Explore the cave to find the dragon");
+print("3. Complete quests for rewards");

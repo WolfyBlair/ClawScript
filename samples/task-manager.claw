@@ -1,0 +1,418 @@
+// Task Management System
+// Demonstrates: Objects, Arrays, CRUD operations, Filtering, Sorting
+
+// Task states
+var TASK_TODO = "todo";
+var TASK_IN_PROGRESS = "in_progress";
+var TASK_DONE = "done";
+var TASK_CANCELLED = "cancelled";
+
+// Priority levels
+var PRIORITY_LOW = 1;
+var PRIORITY_MEDIUM = 2;
+var PRIORITY_HIGH = 3;
+var PRIORITY_URGENT = 4;
+
+// Create a new task
+function createTask(title, description, assignee, priority) {
+  return {
+    id: "task_" + generateId(),
+    title: title,
+    description: description || "",
+    assignee: assignee || null,
+    priority: priority || PRIORITY_MEDIUM,
+    status: TASK_TODO,
+    tags: [],
+    comments: [],
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+    dueDate: null,
+    estimatedHours: 0,
+    actualHours: 0,
+    blockedBy: [],
+    subtasks: []
+  };
+}
+
+// Generate unique ID
+function generateId() {
+  return Date.now() + "_" + Math.floor(Math.random() * 10000);
+}
+
+// Update task status
+function updateStatus(task, newStatus) {
+  var validStatuses = [TASK_TODO, TASK_IN_PROGRESS, TASK_DONE, TASK_CANCELLED];
+  if (!Array.includes(validStatuses, newStatus)) {
+    return { success: false, error: "Invalid status" };
+  }
+  task.status = newStatus;
+  task.updatedAt = Date.now();
+  return { success: true, task: task };
+}
+
+// Assign task
+function assignTask(task, user) {
+  task.assignee = user;
+  task.updatedAt = Date.now();
+  return { success: true };
+}
+
+// Add comment to task
+function addTaskComment(task, author, content) {
+  var comment = {
+    id: "comment_" + generateId(),
+    author: author,
+    content: content,
+    createdAt: Date.now()
+  };
+  task.comments = Array.push(task.comments, comment);
+  task.updatedAt = Date.now();
+  return comment;
+}
+
+// Add tag to task
+function addTag(task, tag) {
+  if (!Array.includes(task.tags, tag)) {
+    task.tags = Array.push(task.tags, tag);
+    task.updatedAt = Date.now();
+  }
+  return task.tags;
+}
+
+// Remove tag from task
+function removeTag(task, tag) {
+  var idx = Array.indexOf(task.tags, tag);
+  if (idx > -1) {
+    task.tags = Array.slice(task.tags, 0, idx) + Array.slice(task.tags, idx + 1);
+    task.updatedAt = Date.now();
+  }
+  return task.tags;
+}
+
+// Add blocker
+function addBlocker(task, blockerId) {
+  if (!Array.includes(task.blockedBy, blockerId)) {
+    task.blockedBy = Array.push(task.blockedBy, blockerId);
+    task.updatedAt = DateNow = Date.now();
+  }
+}
+
+// Remove blocker
+function removeBlocker(task, blockerId) {
+  var idx = Array.indexOf(task.blockedBy, blockerId);
+  if (idx > -1) {
+    task.blockedBy = Array.slice(task.blockedBy, 0, idx) + Array.slice(task.blockedBy, idx + 1);
+    task.updatedAt = Date.now();
+  }
+}
+
+// Check if task is blocked
+function isBlocked(task) {
+  return len(task.blockedBy) > 0;
+}
+
+// Add subtask
+function addSubtask(parent, title) {
+  var subtask = createTask(title, "", parent.assignee, parent.priority);
+  parent.subtasks = Array.push(parent.subtasks, subtask);
+  parent.updatedAt = Date.now();
+  return subtask;
+}
+
+// Get completion percentage
+function getCompletion(task) {
+  if (task.status == TASK_DONE) return 100;
+  if (task.status == TASK_CANCELLED) return 0;
+  if (len(task.subtasks) == 0) {
+    if (task.status == TASK_TODO) return 0;
+    if (task.status == TASK_IN_PROGRESS) return 50;
+  }
+  var completed = 0;
+  for (var i = 0; i < len(task.subtasks); i = i + 1) {
+    if (task.subtasks[i].status == TASK_DONE) {
+      completed = completed + 1;
+    }
+  }
+  return Math.floor((completed / len(task.subtasks)) * 100);
+}
+
+// Filter tasks by status
+function filterByStatus(tasks, status) {
+  return Array.filter(tasks, function(t) {
+    return t.status == status;
+  });
+}
+
+// Filter tasks by assignee
+function filterByAssignee(tasks, assignee) {
+  return Array.filter(tasks, function(t) {
+    return t.assignee == assignee;
+  });
+}
+
+// Filter tasks by priority
+function filterByPriority(tasks, priority) {
+  return Array.filter(tasks, function(t) {
+    return t.priority == priority;
+  });
+}
+
+// Filter overdue tasks
+function filterOverdue(tasks) {
+  var now = Date.now();
+  return Array.filter(tasks, function(t) {
+    return t.dueDate != null && t.dueDate < now && t.status != TASK_DONE;
+  });
+}
+
+// Sort by priority (high to low)
+function sortByPriority(tasks) {
+  return Array.sort(tasks, function(a, b) {
+    return b.priority - a.priority;
+  });
+}
+
+// Sort by due date
+function sortByDueDate(tasks) {
+  return Array.sort(tasks, function(a, b) {
+    if (a.dueDate == null) return 1;
+    if (b.dueDate == null) return -1;
+    return a.dueDate - b.dueDate;
+  });
+}
+
+// Sort by created date
+function sortByCreated(tasks) {
+  return Array.sort(tasks, function(a, b) {
+    return b.createdAt - a.createdAt;
+  });
+}
+
+// Get priority label
+function priorityLabel(priority) {
+  if (priority == PRIORITY_LOW) return "Low";
+  if (priority == PRIORITY_MEDIUM) return "Medium";
+  if (priority == PRIORITY_HIGH) return "High";
+  if (priority == PRIORITY_URGENT) return "Urgent";
+  return "Unknown";
+}
+
+// Get status label
+function statusLabel(status) {
+  if (status == TASK_TODO) return "📋 To Do";
+  if (status == TASK_IN_PROGRESS) return "🔄 In Progress";
+  if (status == TASK_DONE) return "✅ Done";
+  if (status == TASK_CANCELLED) return "❌ Cancelled";
+  return "Unknown";
+}
+
+// Format task for display
+function formatTask(task) {
+  var output = "";
+  output = output + "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+  output = output + "📌 " + task.title + "\n";
+  output = output + "   ID: " + task.id + "\n";
+  if (task.description != "") {
+    output = output + "   📝 " + task.description + "\n";
+  }
+  output = output + "   Status: " + statusLabel(task.status) + "\n";
+  output = output + "   Priority: " + priorityLabel(task.priority) + "\n";
+  if (task.assignee != null) {
+    output = output + "   👤 Assignee: " + task.assignee + "\n";
+  }
+  if (task.dueDate != null) {
+    output = output + "   📅 Due: " + Time.format(task.dueDate, "YYYY-MM-DD") + "\n";
+  }
+  if (len(task.tags) > 0) {
+    output = output + "   🏷️ Tags: " + Array.join(task.tags, ", ") + "\n";
+  }
+  if (len(task.blockedBy) > 0) {
+    output = output + "   🚫 Blocked by: " + Array.join(task.blockedBy, ", ") + "\n";
+  }
+  if (len(task.subtasks) > 0) {
+    output = output + "   📊 Subtasks: " + getCompletion(task) + "% complete\n";
+  }
+  output = output + "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━";
+  return output;
+}
+
+// Get board view (kanban style)
+function getBoardView(tasks) {
+  var board = {
+    "To Do": [],
+    "In Progress": [],
+    "Done": [],
+    "Cancelled": []
+  };
+  
+  for (var i = 0; i < len(tasks); i = i + 1) {
+    var t = tasks[i];
+    if (t.status == TASK_TODO) {
+      board["To Do"] = Array.push(board["To Do"], t);
+    } else if (t.status == TASK_IN_PROGRESS) {
+      board["In Progress"] = Array.push(board["In Progress"], t);
+    } else if (t.status == TASK_DONE) {
+      board["Done"] = Array.push(board["Done"], t);
+    } else if (t.status == TASK_CANCELLED) {
+      board["Cancelled"] = Array.push(board["Cancelled"], t);
+    }
+  }
+  return board;
+}
+
+// Calculate team stats
+function getTeamStats(tasks) {
+  var stats = {
+    total: len(tasks),
+    todo: 0,
+    inProgress: 0,
+    done: 0,
+    cancelled: 0,
+    overdue: 0,
+    blocked: 0,
+    byPriority: {}
+  };
+  
+  for (var i = 0; i < len(tasks); i = i + 1) {
+    var t = tasks[i];
+    if (t.status == TASK_TODO) stats.todo = stats.todo + 1;
+    if (t.status == TASK_IN_PROGRESS) stats.inProgress = stats.inProgress + 1;
+    if (t.status == TASK_DONE) stats.done = stats.done + 1;
+    if (t.status == TASK_CANCELLED) stats.cancelled = stats.cancelled + 1;
+    if (t.dueDate != null && t.dueDate < Date.now() && t.status != TASK_DONE) {
+      stats.overdue = stats.overdue + 1;
+    }
+    if (len(t.blockedBy) > 0) stats.blocked = stats.blocked + 1;
+    
+    var pLabel = priorityLabel(t.priority);
+    if (!has(stats.byPriority, pLabel)) {
+      stats.byPriority[pLabel] = 0;
+    }
+    stats.byPriority[pLabel] = stats.byPriority[pLabel] + 1;
+  }
+  
+  return stats;
+}
+
+// ========== DEMO ==========
+
+print("=== Task Management System Demo ===\n");
+
+// Create team members
+var team = ["Alice", "Bob", "Charlie", "Diana"];
+
+// Create project tasks
+var tasks = [];
+
+// Sprint planning tasks
+var task1 = createTask("Design new landing page", "Create wireframes and mockups", "Alice", PRIORITY_HIGH);
+task1.dueDate = Time.add(Date.now(), 3, "days");
+addTag(task1, "design");
+addTag(task1, "frontend");
+
+var task2 = createTask("Implement user authentication", "Add login, signup, password reset", "Bob", PRIORITY_URGENT);
+task2.dueDate = Time.add(Date.now(), 2, "days");
+addTag(task1, "backend");
+addTag(task1, "security");
+
+var task3 = createTask("Set up CI/CD pipeline", "Configure GitHub Actions for auto-deploy", "Charlie", PRIORITY_MEDIUM);
+task3.dueDate = Time.add(Date.now(), 5, "days");
+addTag(task3, "devops");
+
+var task4 = createTask("Write API documentation", "Document all REST endpoints", "Diana", PRIORITY_LOW);
+task4.dueDate = Time.add(Date.now(), 7, "days");
+addTag(task4, "docs");
+
+var task5 = createTask("Fix login bug on Safari", "Users report login fails on iOS", "Bob", PRIORITY_HIGH);
+task5.dueDate = Date.now() - 86400000; // Yesterday (overdue)
+addTag(task5, "bug");
+addTag(task5, "urgent");
+
+var task6 = createTask("Add dark mode support", "Implement theme toggle", "Alice", PRIORITY_MEDIUM);
+addTag(task6, "frontend");
+addTag(task6, "ui");
+
+var task7 = createTask("Database optimization", "Improve query performance", "Charlie", PRIORITY_HIGH);
+task7.dueDate = Time.add(Date.now(), 1, "days");
+addTag(task7, "backend");
+addTag(task7, "performance");
+
+tasks = Array.push(tasks, task1, task2, task3, task4, task5, task6, task7);
+
+// Update some statuses
+updateStatus(task1, TASK_IN_PROGRESS);
+updateStatus(task2, TASK_IN_PROGRESS);
+updateStatus(task3, TASK_DONE);
+
+// Add comments
+addTaskComment(task1, "Bob", "Looking forward to the mockups!");
+addTaskComment(task1, "Charlie", "Let me know if you need help with CSS");
+
+// Add subtasks to task1
+addSubtask(task1, "Create wireframes");
+addSubtask(task1, "Design mockups in Figma");
+addSubtask(task1, "Get stakeholder approval");
+
+// Block task2
+addBlocker(task2, task5.id);
+
+// Display all tasks
+print("--- All Tasks ---");
+for (var i = 0; i < len(tasks); i = i + 1) {
+  print(formatTask(tasks[i]));
+  print("");
+}
+
+// Board view
+print("\n--- Kanban Board ---");
+var board = getBoardView(tasks);
+print("📋 To Do (" + len(board["To Do"]) + "):");
+for (var i = 0; i < len(board["To Do"]); i = i + 1) {
+  print("  - " + board["To Do"][i].title);
+}
+
+print("\n🔄 In Progress (" + len(board["In Progress"]) + "):");
+for (var i = 0; i < len(board["In Progress"]); i = i + 1) {
+  print("  - " + board["In Progress"][i].title);
+}
+
+print("\n✅ Done (" + len(board["Done"]) + "):");
+for (var i = 0; i < len(board["Done"]); i = i + 1) {
+  print("  - " + board["Done"][i].title);
+}
+
+// Filter examples
+print("\n--- High Priority Tasks ---");
+var highPri = filterByPriority(tasks, PRIORITY_HIGH);
+for (var i = 0; i < len(highPri); i = i + 1) {
+  print("  - " + highPri[i].title + " (" + priorityLabel(highPri[i].priority) + ")");
+}
+
+print("\n--- Overdue Tasks ---");
+var overdue = filterOverdue(tasks);
+for (var i = 0; i < len(overdue); i = i + 1) {
+  print("  - " + overdue[i].title);
+}
+
+print("\n--- Bob's Tasks ---");
+var bobTasks = filterByAssignee(tasks, "Bob");
+for (var i = 0; i < len(bobTasks); i = i + 1) {
+  print("  - " + bobTasks[i].title + " [" + statusLabel(bobTasks[i].status) + "]");
+}
+
+// Team stats
+print("\n--- Team Statistics ---");
+var stats = getTeamStats(tasks);
+print("Total Tasks: " + stats.total);
+print("To Do: " + stats.todo);
+print("In Progress: " + stats.inProgress);
+print("Done: " + stats.done);
+print("Cancelled: " + stats.cancelled);
+print("Overdue: " + stats.overdue);
+print("Blocked: " + stats.blocked);
+print("\nBy Priority:");
+for (var key in stats.byPriority) {
+  print("  " + key + ": " + stats.byPriority[key]);
+}
+
+print("\n=== Demo Complete ===");
